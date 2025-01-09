@@ -19,6 +19,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         echo "Feil under registrering.";
     }
 }
+
+require 'libs/php-2fa/GoogleAuthenticator.php';
+
+$ga = new PHPGangsta_GoogleAuthenticator();
+$secret = $ga->createSecret();  // Generer en hemmelig nøkkel
+
+echo "Skann denne QR-koden med din 2FA-app:";
+echo '<img src="'.$ga->getQRCodeGoogleUrl("DittProsjektnavn", $secret).'" alt="QR-kode">';
+echo "<p>Din hemmelige nøkkel: $secret</p>";
+
+// Lagre den hemmelige nøkkelen i databasen sammen med brukeren
+$stmt = $conn->prepare("INSERT INTO Users (username, email, password_hash, secret_key) VALUES (?, ?, ?, ?)");
+$stmt->bind_param("ssss", $username, $email, $passwordHash, $secret);
+
 ?>
 
 <!DOCTYPE html>
