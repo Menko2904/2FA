@@ -1,12 +1,14 @@
 <?php
 $host = 'localhost';
-$db = 'kabelkongen';
+$db = '2FA';
 $user = 'root';
-$pass = '';
+$pass = 'Bruker99!';
 
 $conn = new mysqli($host, $user, $pass, $db);
 
 if ($conn->connect_error) {
     die("Connection failed: " . $conn->connect_error);
+} else {
+    echo "Tilkobling vellykket!";
 }
 ?>
