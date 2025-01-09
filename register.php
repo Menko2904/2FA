@@ -1,4 +1,5 @@
 <?php
+session_start();
 include 'db.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -11,7 +12,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $stmt = $conn->prepare("INSERT INTO Users (username, email, password_hash) VALUES (?, ?, ?)");
     $stmt->bind_param("sss", $username, $email, $passwordHash);
     if ($stmt->execute()) {
-        echo "Registrering vellykket!";
+        $_SESSION['username'] = $username;  // Lagre brukernavnet i sesjonen
+        header("Location: welcome.php");    // Omdiriger til welcome.php
+        exit;
     } else {
         echo "Feil under registrering.";
     }
@@ -38,5 +41,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <br>
         <button type="submit">Registrer</button>
     </form>
+    <p>Har du allerede en konto? <a href="login.php">Logg inn her</a></p>
 </body>
 </html>
+
