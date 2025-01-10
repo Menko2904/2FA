@@ -7,6 +7,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $username = $_POST['username'];
     $email = $_POST['email'];
     $password = $_POST['password'];
+    $twofa_method = $_POST['twofa_method']; // Hent valgt 2FA-metode
 
     // Sjekk om brukernavnet allerede finnes
     $stmt = $conn->prepare("SELECT user_id FROM Users WHERE username = ?");
@@ -33,34 +34,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Generer hashed passord
     $passwordHash = password_hash($password, PASSWORD_BCRYPT);
 
-    // Generer en hemmelig nøkkel for 2FA
-    $ga = new PHPGangsta_GoogleAuthenticator();
-    $secret = $ga->createSecret();
+    // Generer en hemmelig nøkkel for app-basert 2FA hvis valgt
+    $secret = null;
+    if ($twofa_method === 'app') {
+        $ga = new PHPGangsta_GoogleAuthenticator();
+        $secret = $ga->createSecret();
+    }
 
     // Sett inn data i databasen
-    $stmt = $conn->prepare("INSERT INTO Users (username, email, password_hash, secret_key) VALUES (?, ?, ?, ?)");
-    $stmt->bind_param("ssss", $username, $email, $passwordHash, $secret);
+    $stmt = $conn->prepare("INSERT INTO Users (username, email, password_hash, secret_key, twofa_method) VALUES (?, ?, ?, ?, ?)");
+    $stmt->bind_param("sssss", $username, $email, $passwordHash, $secret, $twofa_method);
 
     if ($stmt->execute()) {
         $_SESSION['username'] = $username;
 
-        // Generer QR-kode
-        $qrCodeUrl = $ga->getQRCodeGoogleUrl('2FA', $secret);
-        echo "Skann denne QR-koden med din 2FA-app:";
-        echo '<img src="' . $qrCodeUrl . '" alt="QR-kode">';
-        echo "<p>Din hemmelige nøkkel: $secret</p>";
+        if ($twofa_method === 'app') {
+            // Generer QR-kode for app-basert 2FA
+            $qrCodeUrl = $ga->getQRCodeGoogleUrl('2FA', $secret);
+            echo "Skann denne QR-koden med din 2FA-app:";
+            echo '<img src="' . $qrCodeUrl . '" alt="QR-kode">';
+            echo "<p>Din hemmelige nøkkel: $secret</p>";
+        } else {
+            // Bekreft at e-post er valgt som 2FA-metode
+            echo "Du har valgt e-post som 2FA-metode. Sjekk e-posten din for 2FA-koder ved pålogging.";
+        }
     } else {
         echo "Feil under registrering.";
     }
 }
 ?>
 
-
-
 <!DOCTYPE html>
 <html lang="no">
 <head>
     <meta charset="UTF-8">
+    <link rel="stylesheet" href="style.css">
     <title>Registrering</title>
 </head>
 <body>
