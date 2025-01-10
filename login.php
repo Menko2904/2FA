@@ -1,15 +1,17 @@
 <?php
 session_start();
-include 'db.php';
-require 'libs/php-2fa/GoogleAuthenticator.php';
+require 'db.php';
+require 'vendor/autoload.php';
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\Exception;
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['username'], $_POST['password'])) {
     $username = $_POST['username'];
     $password = $_POST['password'];
-    $twoFACode = $_POST['2fa_code'];
 
     // Finn brukeren i databasen
-    $stmt = $conn->prepare("SELECT user_id, password_hash, secret_key FROM Users WHERE username = ?");
+    $stmt = $conn->prepare("SELECT user_id, password_hash, email, secret_key, twofa_method FROM Users WHERE username = ?");
     $stmt->bind_param("s", $username);
     $stmt->execute();
     $result = $stmt->get_result();
@@ -19,16 +21,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // Verifiser passordet
         if (password_verify($password, $row['password_hash'])) {
-            $ga = new PHPGangsta_GoogleAuthenticator();
-            $secret = $row['secret_key'];
+            $_SESSION['username'] = $username;
+            $_SESSION['email'] = $row['email'];
+            $_SESSION['secret_key'] = $row['secret_key'];
+            $_SESSION['twofa_method'] = $row['twofa_method'];
 
-            // Verifiser 2FA-koden
-            if ($ga->verifyCode($secret, $twoFACode, 2)) {
-                $_SESSION['username'] = $username;
-                header("Location: welcome.php");
+            // Sjekk hvilken 2FA-metode som er valgt og omdiriger
+            if ($row['twofa_method'] === 'email') {
+                header("Location: email_2fa.php");
                 exit;
-            } else {
-                echo "Feil TOTP-kode.";
+            } elseif ($row['twofa_method'] === 'app') {
+                header("Location: app_2fa.php");
+                exit;
             }
         } else {
             echo "Feil brukernavn eller passord.";
@@ -54,13 +58,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <label for="password">Passord:</label>
         <input type="password" name="password" required>
         <br>
-        <label for="2fa_code">TOTP-kode:</label>
-        <input type="text" name="2fa_code" required>
-        <br>
         <button type="submit">Logg inn</button>
     </form>
-
-    <p>Har du ikke en konto? <a href="register.php">Registrer deg her</a></p>
 </body>
 </html>
-
