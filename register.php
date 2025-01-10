@@ -1,39 +1,41 @@
 <?php
 session_start();
 include 'db.php';
+require 'libs/php-2fa/GoogleAuthenticator.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $username = $_POST['username'];
     $email = $_POST['email'];
     $password = $_POST['password'];
 
+    // Generer hashed passord
     $passwordHash = password_hash($password, PASSWORD_BCRYPT);
 
-    $stmt = $conn->prepare("INSERT INTO Users (username, email, password_hash) VALUES (?, ?, ?)");
-    $stmt->bind_param("sss", $username, $email, $passwordHash);
+    // Generer en hemmelig nøkkel for 2FA
+    $ga = new PHPGangsta_GoogleAuthenticator();
+    $secret = $ga->createSecret();
+
+    // Forbered SQL-spørringen med hemmelig nøkkel inkludert
+    $stmt = $conn->prepare("INSERT INTO Users (username, email, password_hash, secret_key) VALUES (?, ?, ?, ?)");
+    $stmt->bind_param("ssss", $username, $email, $passwordHash, $secret);
+
     if ($stmt->execute()) {
-        $_SESSION['username'] = $username;  // Lagre brukernavnet i sesjonen
-        header("Location: welcome.php");    // Omdiriger til welcome.php
-        exit;
+        $_SESSION['username'] = $username;
+        $_SESSION['secret_key'] = $secret; // Lagre hemmelig nøkkel i sesjonen
+
+        // Generer QR-koden for 2FA og vis den til brukeren
+        $qrCodeUrl = $ga->getQRCodeGoogleUrl("DittProsjektnavn", $secret);
+        echo "Skann denne QR-koden med din 2FA-app:";
+        echo '<img src="'.$qrCodeUrl.'" alt="QR-kode">';
+        echo "<p>Din hemmelige nøkkel: $secret</p>";
+
+        echo '<p><a href="welcome.php">Fortsett til velkomstsiden</a></p>';
     } else {
         echo "Feil under registrering.";
     }
 }
-
-require 'libs/php-2fa/GoogleAuthenticator.php';
-
-$ga = new PHPGangsta_GoogleAuthenticator();
-$secret = $ga->createSecret();  // Generer en hemmelig nøkkel
-
-echo "Skann denne QR-koden med din 2FA-app:";
-echo '<img src="'.$ga->getQRCodeGoogleUrl("DittProsjektnavn", $secret).'" alt="QR-kode">';
-echo "<p>Din hemmelige nøkkel: $secret</p>";
-
-// Lagre den hemmelige nøkkelen i databasen sammen med brukeren
-$stmt = $conn->prepare("INSERT INTO Users (username, email, password_hash, secret_key) VALUES (?, ?, ?, ?)");
-$stmt->bind_param("ssss", $username, $email, $passwordHash, $secret);
-
 ?>
+
 
 <!DOCTYPE html>
 <html lang="no">
