@@ -61,5 +61,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['username'], $_POST['p
         <br>
         <button type="submit">Logg inn</button>
     </form>
+    <p>Har du ikke en konto? <a href="register.php">Register her</a></p>
 </body>
 </html>
